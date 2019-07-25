@@ -1,0 +1,13 @@
+{
+    "macros": ["MBEDTLS_USER_CONFIG_FILE=\"mbedtls_user_config.h\""],
+    "target_overrides": {
+        "*": {
+            "platform.stdio-convert-newlines": true,
+            "target.network-default-interface-type": "WIFI",
+            "nsapi.default-wifi-security": "WPA_WPA2",
+            "nsapi.default-wifi-ssid": "\"SSID\"",
+            "nsapi.default-wifi-password": "\"PASSWORD\"",
+	        "platform.stdio-baud-rate": 115200
+        }
+    }
+}

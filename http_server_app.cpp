@@ -47,7 +47,9 @@ extern "C" {
 
 #define HTTP_PORT         80
 #define HTTPS_PORT        443
-/* Note: On memory constrained devices, there could be limitation in supporting more than one secure connection. Each secure TLS connection, needs 32KB of heap */        
+/* Note: On memory constrained devices (such as CY8CKIT_062_WIFI_BT), there could be limitation in supporting more than one secure connection.
+ * Each secure TLS connection, needs 33KB of heap
+ */
 #define MAX_SOCKETS       2
 
 /* Certificates provided in this file are for test purposes only.
@@ -182,12 +184,14 @@ int length = 0;
 static int32_t process_handler( const char* url_path, const char* url_parameters, cy_http_response_stream_t* stream, void* arg, cy_http_message_body_t* http_message_body )
 {
     memset(buffer, 0, BUFFER_LENGTH);
-    
+
     memcpy( buffer, http_message_body->data, http_message_body->data_length);
     APP_INFO(("total_message_data_remaining : %ld \n", http_message_body->data_remaining));
     APP_INFO(("Received message_data_length : %d \n", http_message_body->data_length));
 
     length += http_message_body->data_length;
+
+    APP_INFO(("%.*s \n", http_message_body->data_length, buffer));
 
     if (http_message_body->data_remaining == 0)
     {
@@ -198,7 +202,7 @@ static int32_t process_handler( const char* url_path, const char* url_parameters
         length = 0;
         memset(buffer, 0, BUFFER_LENGTH);
     }
-	
+
     return 0;
 }
 

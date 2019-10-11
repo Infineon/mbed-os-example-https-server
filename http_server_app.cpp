@@ -17,6 +17,10 @@
 /** @file
  *
  * Reference code example for HTTP server
+ * Application demonstrate connection to Access point, Registering resource with HTTP server library and
+ * starting secure/non-secure HTTP server. Client can connect to HTTP server and access registered resource
+ * through webpage/curl etc. It also demonstrate server sent events which can be registered as resource and
+ * periodically messages will be sent to client.
  */
 
 #include "mbed.h"
@@ -30,6 +34,9 @@ extern "C" {
 
 #define STATIC_RESOURCE
 #define DYNAMIC_RESOURCE
+
+/* Enable flag to register server sent event resource */
+//#define HTTP_SERVER_SENT_EVENTS
 
 /* Enable below flag for HTTP server */
 #define HTTP_SERVER
@@ -173,6 +180,10 @@ const char SSL_ROOTCA_PEM[] = "-----BEGIN CERTIFICATE-----\r\n"                 
 "Hello, This is a reference HTTP server application" \
 "</head></html>"
 
+#ifdef HTTP_SERVER_SENT_EVENTS
+#define SSE_PAYLOAD       "Hello, This is server sent events \r\n"
+cy_http_response_stream_t* http_event_stream = NULL;
+#endif
 
 NetworkInterface*      network;
 HTTPServer*            server;
@@ -206,8 +217,56 @@ static int32_t process_handler( const char* url_path, const char* url_parameters
     return 0;
 }
 
+#ifdef HTTP_SERVER_SENT_EVENTS
+void send_events()
+{
+    cy_rslt_t result;
+
+    if( http_event_stream == NULL )
+    {
+        return;
+    }
+
+    result = server->http_response_stream_write( http_event_stream, (const void*)EVENT_STREAM_DATA, sizeof( EVENT_STREAM_DATA ) - 1 );
+    if ( result != CY_RSLT_SUCCESS )
+    {
+        http_event_stream = NULL;
+        return;
+    }
+
+    /* Send message to client */
+    server->http_response_stream_write( http_event_stream, SSE_PAYLOAD, sizeof(SSE_PAYLOAD) - 1);
+    if ( result != CY_RSLT_SUCCESS )
+    {
+        http_event_stream = NULL;
+        return;
+    }
+
+    /* SSE is ended with two line feeds */
+    server->http_response_stream_write( http_event_stream, (const void*)LFLF, sizeof( LFLF ) - 1 );
+    if ( result != CY_RSLT_SUCCESS )
+    {
+        http_event_stream = NULL;
+        return;
+    }
+
+    return;
+}
+
+static int32_t process_server_sent_event_handler( const char* url_path, const char* url_parameters, cy_http_response_stream_t* stream, void* arg, cy_http_message_body_t* http_message_body )
+{
+    http_event_stream = stream;
+
+    server->http_response_stream_enable_chunked_transfer( http_event_stream );
+    server->http_response_stream_write_header( http_event_stream, CY_HTTP_200_TYPE, CHUNKED_CONTENT_LENGTH, CY_HTTP_CACHE_DISABLED, MIME_TYPE_TEXT_EVENT_STREAM );
+
+    return 0;
+}
+#endif
+
 int main(void)
 {
+    int i = 0;
 
     APP_INFO(("Connecting to the network using Wifi...\r\n"));
     network = NetworkInterface::get_default_instance();
@@ -270,12 +329,35 @@ int main(void)
     dynamic_resource.arg = NULL;
 
     server->register_resource((uint8_t*) "/post", (uint8_t*)"text/html", CY_DYNAMIC_URL_CONTENT, &dynamic_resource);
+
+#endif
+
+#ifdef HTTP_SERVER_SENT_EVENTS
+    cy_resource_dynamic_data_t dynamic_sse_resource;
+    dynamic_sse_resource.resource_handler = process_server_sent_event_handler;
+    dynamic_sse_resource.arg = NULL;
+
+    server->register_resource((uint8_t*) "/events", (uint8_t*)"text/event-stream", CY_RAW_DYNAMIC_URL_CONTENT, &dynamic_sse_resource);
 #endif
 
     /* Start HTTP server */
     server->start();
 
     APP_INFO(("HTTP server started \n"));
+
+#ifdef HTTP_SERVER_SENT_EVENTS
+    i = 0;
+    while(i < 10)
+    {
+        wait_ms(1000);
+
+        if( http_event_stream != NULL )
+        {
+            send_events();
+            i++;
+        }
+    }
+#endif
 
     /* This is daemon so HTTP server is always running. if you want to stop HTTP server, then call stop() API. */
 }

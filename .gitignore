@@ -1,0 +1,16 @@
+# Libraries
+mbed-os/
+
+# Build output
+BUILD/
+
+# Exports
+eclipse-extras/
+*.pyc
+.mbed
+GettingStarted.html
+mbed_config.h
+mbed_settings.py
+
+# Misc
+.vscode/
